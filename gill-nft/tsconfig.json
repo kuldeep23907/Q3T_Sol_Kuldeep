@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",               // required for top-level await
+    "moduleResolution": "bundler",   // required for gill, umi
+    "esModuleInterop": true,
+    "moduleDetection": "force",
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
