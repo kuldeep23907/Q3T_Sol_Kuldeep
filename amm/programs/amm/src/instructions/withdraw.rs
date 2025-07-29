@@ -112,9 +112,9 @@ impl<'info> Withdraw<'info> {
         let cpi_accounts = Burn {
           mint: self.mint_lp.to_account_info(),
           from: self.user_lp.to_account_info(),
-          authority: self.config.to_account_info()
+          authority: self.user.to_account_info()
         };
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         // vur(cpi_ctx, amount_y, self.mint_y.decimals);
         burn(cpi_ctx, amount_lp);
 
