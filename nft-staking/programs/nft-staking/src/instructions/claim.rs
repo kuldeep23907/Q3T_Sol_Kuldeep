@@ -1,10 +1,12 @@
+use std::thread::sleep;
+
 use crate::state::{StakeAccount, StakeConfig, UserAccount};
 use anchor_lang::{prelude::*, solana_program::sysvar::rewards};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{
-        spl_token::instruction::transfer_checked, transfer, Mint, Token, TokenAccount,
-        TransferChecked,
+        mint_to, spl_token::instruction::transfer_checked, transfer, Mint, MintTo, Token,
+        TokenAccount,
     },
 };
 
@@ -14,7 +16,7 @@ pub struct Claim<'info> {
     pub staker: Signer<'info>,
     #[account[
       seeds=[b"user", staker.key().as_ref()],
-      bump= user_account.bump
+      bump= staker_account.bump
     ]]
     pub staker_account: Account<'info, UserAccount>,
     #[account[
@@ -25,7 +27,7 @@ pub struct Claim<'info> {
     #[account[
       mint::token_program = token_program
     ]]
-    pub stake_token: InterfaceAccount<'info, Mint>,
+    pub stake_token: Account<'info, Mint>,
     #[account[
       seeds=[b"stake", staker.key().as_ref(), stake_token.key().as_ref() ],
       bump = stake_account.bump
@@ -44,7 +46,7 @@ pub struct Claim<'info> {
       associated_token::authority=staker,
       associated_token::token_program=token_program
     ]]
-    pub user_reward_mint_ata: InterfaceAccount<'info, TokenAccount>,
+    pub user_reward_mint_ata: Account<'info, TokenAccount>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -52,18 +54,30 @@ pub struct Claim<'info> {
 
 impl<'info> Claim<'info> {
     pub fn claim(&mut self) -> Result<()> {
-        let clock = Clock::get()?; // Pull the clock sysvar
-        let current_time = clock.unix_timestamp; // i64 in seconds
+        // mint rewards to user as per user points
+        let mint_rewards = MintTo {
+            mint: self.reward_mint.to_account_info(),
+            to: self.staker.to_account_info(),
+            authority: self.config.to_account_info(),
+        };
 
-        let staked_for = current_time - self.stake_account.staked_at;
+        // unfreeze
+        let signer_seeds: &[&[u8]] = &[
+            b"config",           // Static byte seed
+            &[self.config.bump], // `u8` bump converted to a slice
+        ];
 
-        let rewards = staked_for as u64 * self.config.reward_per_token as u64;
+        mint_to(
+            CpiContext::new_with_signer(
+                self.token_program.to_account_info(),
+                mint_rewards,
+                &[signer_seeds],
+            ),
+            self.staker_account.points as u64,
+        )?;
 
+        self.staker_account.points = 0;
+        // update points
         Ok(())
     }
 }
-
-// pub fn handler(ctx: Context<Config>) -> Result<()> {
-//     // msg!("Greetings from: {{:?}}", ctx.program_id);
-//     Ok(())
-// }

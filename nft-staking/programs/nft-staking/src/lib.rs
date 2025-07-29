@@ -16,7 +16,15 @@ declare_id!("DXeoeaJCo3nZF8rkj5UAHHDbpH139juTLfhH4T4S5xJW");
 pub mod nft_staking {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+    pub fn stake(ctx: Context<Stake>) -> Result<()> {
+        ctx.accounts.stake(&ctx.bumps)
+    }
+
+    pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
+        ctx.accounts.unstake()
+    }
+
+    pub fn claim(ctx: Context<Claim>) -> Result<()> {
+        ctx.accounts.claim()
     }
 }

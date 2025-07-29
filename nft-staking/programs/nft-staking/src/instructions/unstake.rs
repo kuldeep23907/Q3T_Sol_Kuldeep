@@ -5,11 +5,15 @@
 // transfer nft
 // freeze it
 
+use crate::error::*;
 use crate::state::{StakeAccount, StakeConfig, UserAccount};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    metadata::{Metadata, MetadataAccount, ThawDelegatedAccountCpi, ThawDelegatedAccount},
+    metadata::{
+        thaw_delegated_account, MasterEditionAccount, Metadata, MetadataAccount,
+        ThawDelegatedAccount,
+    },
     token::{
         spl_token::instruction::transfer_checked, transfer, Mint, Token, TokenAccount,
         TransferChecked,
@@ -23,7 +27,7 @@ pub struct Unstake<'info> {
     #[account[
       mut,
       seeds=[b"user", staker.key().as_ref()],
-      bump= user_account.bump
+      bump= staker_account.bump
     ]]
     pub staker_account: Account<'info, UserAccount>,
     #[account[
@@ -44,11 +48,11 @@ pub struct Unstake<'info> {
     #[account[
       mut,
       associated_token::mint = stake_token,
-      associated_token::authority = user,
+      associated_token::authority = staker,
     ]]
-    pub user_stake_token_ata: InterfaceAccount<'info, TokenAccount>,
+    pub user_stake_token_ata: Account<'info, TokenAccount>,
     #[account[
-      seeds=[b"metadata", metadata_program.key().as_ref(), mint.key().as_ref()],
+      seeds=[b"metadata", metadata_program.key().as_ref(), stake_token.key().as_ref()],
       seeds::program = metadata_program.key(),
       bump,
       constraint = metadata.collection.as_ref().unwrap().key.as_ref() == collection_mint.key().as_ref(),
@@ -81,59 +85,40 @@ impl<'info> Unstake<'info> {
         let time_elapsed = current_time - self.stake_account.staked_at;
         require!(
             ((time_elapsed / 86400) as u32) < self.config.freeze_period,
-            StakeError::FreePeriodNotOver
+            CustomError::Error1
         );
 
         self.staker_account.points +=
             ((time_elapsed / 86400) as u32) * self.config.reward_per_token;
 
-        // unfreeze
-        let seeds = &[
+        let skey = &self.staker.key();
+        let sskey = &self.stake_token.key();
+
+        // Construct the seed array for PDA
+        let seeds: &[&[u8]; 4] = &[
             b"stake",
-            self.staker.key().as_ref(),
-            self.stake_token.key().as_ref(),
+            skey.as_ref(),
+            sskey.as_ref(),
             &[self.stake_account.bump],
         ];
 
-        let delegate = self.stake_account.to_account_info();
-        let token_account = self.stake_token.to_account_info();
-        let edition = self.edition.to_account_info();
-        let
+        // `invoke_signed` expects a `&[&[&[u8]]]`
+        // So just use `&[seeds[..]]` to match the type
+        let s: &[&[&[u8]]] = &[&seeds[..]];
 
-        // update amount staked
-        // close the stake account
+        let thaw_account = ThawDelegatedAccount {
+            metadata: self.metadata.to_account_info(),
+            delegate: self.stake_account.to_account_info(),
+            token_account: self.user_stake_token_ata.to_account_info(),
+            mint: self.stake_token.to_account_info(),
+            edition: self.edition.to_account_info(),
+            token_program: self.token_program.to_account_info(),
+        };
 
+        let thaw_ctx =
+            CpiContext::new_with_signer(self.token_program.to_account_info(), thaw_account, s);
+
+        thaw_delegated_account(thaw_ctx);
         Ok(())
-
-        // require!(
-        //     self.staker_account.amount_staked <= self.config.max_stake,
-        //     CustomError::StakeLimitReached
-        // );
-        // let clock = Clock::get()?; // Pull the clock sysvar
-        // let current_time = clock.unix_timestamp; // i64 in seconds
-
-        // self.stake_account.set_inner(StakeAccount {
-        //     stake_token: self.stake_token.key(),
-        //     owner: self.staker.key(),
-        //     staked_at: current_time,
-        //     bump: bumps.stake_account,
-        // });
-
-        // self.staker_account.amount_staked += 1;
-
-        // let cpi_program = self.token_program.to_account_info();
-        // let cpi_accounts = Transfer {
-        //     from: self.user_stake_token_ata.to_account_info(),
-        //     to: self.config_stake_token_ata.to_account_info(),
-        //     authority: self.staker.to_account_info(),
-        // };
-        // let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        // transfer(cpi_ctx, 1);
-        // Ok(())
     }
 }
-
-// pub fn handler(ctx: Context<Config>) -> Result<()> {
-//     // msg!("Greetings from: {{:?}}", ctx.program_id);
-//     Ok(())
-// }

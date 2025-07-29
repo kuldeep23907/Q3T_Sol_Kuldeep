@@ -1,7 +1,7 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
-
 use crate::state::StakeConfig;
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{Mint, Token};
 
 #[derive(Accounts)]
 pub struct Config<'info> {
@@ -33,8 +33,8 @@ impl<'info> Config<'info> {
     pub fn init_config(
         &mut self,
         bumps: &ConfigBumps,
-        reward_per_token: u8,
-        max_stake: u8,
+        reward_per_token: u32,
+        max_stake: u32,
         freeze_period: u32,
     ) -> Result<()> {
         self.config.set_inner(StakeConfig {
@@ -47,8 +47,3 @@ impl<'info> Config<'info> {
         Ok(())
     }
 }
-
-// pub fn handler(ctx: Context<Config>) -> Result<()> {
-//     // msg!("Greetings from: {{:?}}", ctx.program_id);
-//     Ok(())
-// }

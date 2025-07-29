@@ -2,20 +2,23 @@
 // nft metadata
 // check if nft belong to nft
 // stake it
-// transfer nft
 // freeze it
 
 use crate::state::{StakeAccount, StakeConfig, UserAccount};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    metadata::{Metadata, MetadataAccount},
+    metadata::{
+        freeze_delegated_account, FreezeDelegatedAccount, MasterEditionAccount, Metadata,
+        MetadataAccount,
+    },
     token::{
         spl_token::instruction::transfer_checked, transfer, Mint, Token, TokenAccount,
         TransferChecked,
     },
 };
 
+use crate::error::*;
 #[derive(Accounts)]
 pub struct Stake<'info> {
     #[account[mut]]
@@ -23,7 +26,7 @@ pub struct Stake<'info> {
     #[account[
       mut,
       seeds=[b"user", staker.key().as_ref()],
-      bump= user_account.bump
+      bump= staker_account.bump
     ]]
     pub staker_account: Account<'info, UserAccount>,
     #[account[
@@ -47,9 +50,9 @@ pub struct Stake<'info> {
     #[account[
       mut,
       associated_token::mint = stake_token,
-      associated_token::authority = user,
+      associated_token::authority = staker,
     ]]
-    pub user_stake_token_ata: InterfaceAccount<'info, TokenAccount>,
+    pub user_stake_token_ata: Account<'info, TokenAccount>,
     #[account[
       init,
       payer=staker,
@@ -57,15 +60,26 @@ pub struct Stake<'info> {
       associated_token::authority = config,
       associated_token::token_program = token_program
     ]]
-    pub config_stake_token_ata: InterfaceAccount<'info, TokenAccount>,
+    pub config_stake_token_ata: Account<'info, TokenAccount>,
     #[account[
-      seeds=[b"metadata", metadata_program.key().as_ref(), mint.key().as_ref()],
+      seeds=[b"metadata", metadata_program.key().as_ref(), stake_token.key().as_ref()],
       seeds::program = metadata_program.key(),
       bump,
       constraint = metadata.collection.as_ref().unwrap().key.as_ref() == collection_mint.key().as_ref(),
       constraint = metadata.collection.as_ref().unwrap().verified == true
     ]]
     pub metadata: Account<'info, MetadataAccount>,
+    #[account(
+        seeds = [
+            b"metadata",
+            metadata_program.key().as_ref(),
+            stake_token.key().as_ref(),
+            b"edition"
+        ],
+        seeds::program = metadata_program.key(),
+        bump,
+    )]
+    pub edition: Account<'info, MasterEditionAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub metadata_program: Program<'info, Metadata>,
@@ -76,7 +90,7 @@ impl<'info> Stake<'info> {
     pub fn stake(&mut self, bumps: &StakeBumps) -> Result<()> {
         require!(
             self.staker_account.amount_staked <= self.config.max_stake,
-            CustomError::StakeLimitReached
+            CustomError::Error1
         );
         let clock = Clock::get()?; // Pull the clock sysvar
         let current_time = clock.unix_timestamp; // i64 in seconds
@@ -89,15 +103,20 @@ impl<'info> Stake<'info> {
         });
 
         self.staker_account.amount_staked += 1;
+        // free nft authority till stake is over
 
-        let cpi_program = self.token_program.to_account_info();
-        let cpi_accounts = Transfer {
-            from: self.user_stake_token_ata.to_account_info(),
-            to: self.config_stake_token_ata.to_account_info(),
-            authority: self.staker.to_account_info(),
+        let freeze_accounts = FreezeDelegatedAccount {
+            metadata: self.metadata.to_account_info(),
+            delegate: self.stake_account.to_account_info(),
+            token_account: self.user_stake_token_ata.to_account_info(),
+            mint: self.stake_token.to_account_info(),
+            edition: self.edition.to_account_info(),
+            token_program: self.token_program.to_account_info(),
         };
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        transfer(cpi_ctx, 1);
+
+        let ctx = CpiContext::new(self.token_program.to_account_info(), freeze_accounts);
+        freeze_delegated_account(ctx);
+
         Ok(())
     }
 }
