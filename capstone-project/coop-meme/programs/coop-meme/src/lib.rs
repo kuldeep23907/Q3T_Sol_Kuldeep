@@ -13,7 +13,7 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("DU8dTxb7qED4fNHmZkDD5Nz6eM6K335x5dczK7FqJRv5");
+declare_id!("GR5FKbFLyLhG19suF1DPGu9qqYLF3bAEAPmFaZd9kiky");
 
 #[program]
 pub mod coop_meme {
@@ -90,6 +90,11 @@ pub mod coop_meme {
     pub fn list_token(ctx: Context<List>) -> Result<()> {
         // only admin can call
         ctx.accounts.list_token()
+    }
+
+    pub fn burn_lp_token(ctx: Context<BurnLP>) -> Result<()> {
+        // only admin can call
+        ctx.accounts.burn_lp_token()
     }
 
     pub fn swap_token_base_input(

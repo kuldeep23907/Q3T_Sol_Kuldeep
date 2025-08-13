@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-coop_meme = "DU8dTxb7qED4fNHmZkDD5Nz6eM6K335x5dczK7FqJRv5"
+coop_meme = "GR5FKbFLyLhG19suF1DPGu9qqYLF3bAEAPmFaZd9kiky"
 
 [registry]
 url = "https://api.apr.dev"
