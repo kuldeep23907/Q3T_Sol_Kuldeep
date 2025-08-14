@@ -341,14 +341,14 @@ impl<'info> List<'info> {
             lp_mint: self.lp_mint.key()
         });
 
-        // burn minted LP tokens
-        self._burn_lp_tokens()?;
+        // // burn minted LP tokens
+        // self._burn_lp_tokens()?;
 
-        emit!(BurnEvent {
-            coop_token: self.coop_token.key(),
-            memecoin: self.memecoin.key(),
-            lp_mint: self.lp_mint.key()
-        });
+        // emit!(BurnEvent {
+        //     coop_token: self.coop_token.key(),
+        //     memecoin: self.memecoin.key(),
+        //     lp_mint: self.lp_mint.key()
+        // });
 
         Ok(())
     }
