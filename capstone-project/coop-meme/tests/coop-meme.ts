@@ -376,10 +376,10 @@ describe('coop-meme-2', () => {
   });
 
   it('Is finalizing voting', async () => {
-    console.log('Starting wait...');
-
-    await delay(2 * 60 * 1000); // 2 minutes = 120000 ms
-
+    console.log(
+      'Tests will wait for 2 minutes to let Memecoin trade over, then only we can finalise, list and swap...'
+    );
+    await waitWithDots(2 * 60 * 1000); // 2 minutes
     console.log('2 minutes passed.');
     await finalizeVote();
   });
@@ -1954,7 +1954,23 @@ describe('coop-meme-2', () => {
     console.log('Config state data:', configState);
   }
 
+  // delay function to wait a specified number of ms
   function delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // function to show dots animating every second for totalDuration ms
+  async function waitWithDots(totalDuration: number) {
+    const intervalMs = 1000; // update dots every 1 second
+    const totalIntervals = totalDuration / intervalMs;
+    const maxDots = 3;
+    for (let i = 0; i < totalIntervals; i++) {
+      const dotCount = (i % maxDots) + 1;
+      process.stdout.write(
+        '\r' + '.'.repeat(dotCount) + ' '.repeat(maxDots - dotCount)
+      );
+      await delay(intervalMs);
+    }
+    process.stdout.write('\rDone!   \n'); // clear and end with Done!
   }
 });
