@@ -15,6 +15,10 @@ mod tests {
             }, // spl_token::{LAMPORTS_PER_SOL}
         },
         litesvm::LiteSVM,
+        litesvm_token::{
+            spl_token::ID as TOKEN_PROGRAM_ID, CreateAssociatedTokenAccount, CreateMint, MintTo,
+            MintToChecked,
+        },
         solana_address::Address,
         solana_instruction::Instruction,
         solana_keypair::Keypair,
@@ -300,6 +304,17 @@ mod tests {
         // Send the transaction and capture the result
         let tx2 = program.send_transaction(transaction).unwrap();
 
+        // MintTo::new(
+        //     &mut program,
+        //     &admin_keypair,
+        //     &mint_token,
+        //     &user_ata,
+        //     10_000_000,
+        // )
+        // .token_program_id(&token_2022_ID)
+        // .send()
+        // .unwrap();
+
         let mint_token_ix = Instruction {
             program_id: PROGRAM_ID,
             accounts: crate::accounts::MintToken {
@@ -323,6 +338,20 @@ mod tests {
         // Send the transaction and capture the result
         let tx = program.send_transaction(transaction).unwrap();
 
+        MintToChecked::new(
+            &mut program,
+            &admin_keypair,
+            &mint_token,
+            &user_ata,
+            10_000_000,
+        )
+        .token_program_id(&token_2022_ID)
+        .decimals(6)
+        .owner(&admin_keypair)
+        // .signers(&[&admin.pubkey()])
+        .send()
+        .unwrap();
+
         // Log transaction details
         msg!("\n\nMint token sucessfull");
         msg!("CUs Consumed: {}", tx.compute_units_consumed);
@@ -331,7 +360,7 @@ mod tests {
         let user_ata_account = program.get_account(&user_ata).unwrap();
         let user_ata_data: StateWithExtensions<Account> =
             StateWithExtensions::<Account>::unpack(&user_ata_account.data).unwrap();
-        assert_eq!(user_ata_data.base.amount, 1000_000_000);
+        assert_eq!(user_ata_data.base.amount, 1010_000_000);
     }
 
     #[test]
